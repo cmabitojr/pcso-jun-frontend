@@ -1,0 +1,119 @@
+﻿@page "/todo"
+@inject IJSRuntime JS
+@using System.Text.Json;
+@using System.Text.Json.Serialization;
+@using System.Net.Http.Headers
+@using Microsoft.JSInterop
+
+<h1>Welcome ToDo Page</h1>
+<!--h3>@jsonData</h3-->
+
+
+@@if (todoList != null)
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Message</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var todo in todoList)
+            {
+                <tr>
+                    <td>@todo.name</td>
+                    <td>@todo.message</td>
+                    <td>@todo.created</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+  <MudTextField @bind-Value="name" Label="Name" Variant="Variant.Outlined"></MudTextField>
+<MudTextField @bind-Value="message" Label="Message" Variant="Variant.Outlined"></MudTextField>
+
+ <br><br>
+
+ <MudButton Variant="Variant.Filled" 
+            EndIcon="@Icons.Material.Filled.Send" 
+            OnClick="AddToDo"
+            Color="Color.Primary">Add</MudButton>
+
+ <MudButton Variant="Variant.Filled" 
+            EndIcon="@Icons.Material.Filled.Send" 
+            OnClick="InvokeJavaScript"
+            Color="Color.Primary">Update App</MudButton>
+
+<MudButton Variant="Variant.Filled" 
+            EndIcon="@Icons.Material.Filled.Send"
+            OnClick="DeleteAll"
+            Color="Color.Primary">Delete List</MudButton>
+
+
+@code {
+    private int count = 0;
+    private string jsonData;
+    private List<ToDoItem> todoList;
+
+    private string name;
+    private string message;
+
+    private async void DeleteAll()
+    {
+        HttpClient httpClient = new HttpClient();
+        await httpClient.DeleteAsync("https://pcso-jun-api.azurewebsites.net/todoitems");
+        await GetListAsync();
+        StateHasChanged();
+    }
+
+    private async void AddToDo()
+    {
+        // Now we want to use our Web API
+        count++;
+        HttpClient httpClient = new HttpClient();
+
+        ToDoItem todoItemPost = new ToDoItem
+            {
+                message = message,
+                name = name
+            };
+        string myContent = JsonSerializer.Serialize(todoItemPost);
+        byte[] buffer = System.Text.Encoding.UTF8.GetBytes(myContent);
+        ByteArrayContent byteContent = new ByteArrayContent(buffer);
+        byteContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        await httpClient.PostAsync("https://pcso-jun-api.azurewebsites.net/todoitems", byteContent);
+
+        await GetListAsync();
+
+        StateHasChanged();
+    }
+
+    private async Task GetListAsync()
+    {
+        HttpClient httpClient = new HttpClient();
+
+        jsonData = await httpClient.GetStringAsync("https://pcso-jun-api.azurewebsites.net/todoitems");
+
+        todoList = JsonSerializer.Deserialize<List<ToDoItem>>(jsonData);
+        name = null;
+        message = null;
+    }
+
+    private async void InvokeJavaScript()
+    {
+        await JS.InvokeVoidAsync("DeleteCache");
+        await JS.InvokeVoidAsync("HelloAlert");
+    }
+
+    public class ToDoItem
+    {
+        public int id { get; set; }
+        public string name { get; set; }
+        public bool isComplete { get; set; }
+        public string message { get; set; }
+        public DateTime created { get; set; }
+    }
+}
